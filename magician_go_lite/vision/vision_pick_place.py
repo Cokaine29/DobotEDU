@@ -155,7 +155,7 @@ def run_preview(args):
                         pts = np.float32([[[u, v]]])
                         trans = cv2.transform(pts, mat_chassis)
                         rx, ry = trans[0][0]
-                        info += f" | Chassis: X={float(rx) + args.offset_x:.1f}, Y={float(ry) + args.offset_y:.1f}"
+                        info += f" | Chassis: X={rx:.1f}, Y={ry:.1f}"
                     
                     # Show matching drop target coordinate if taught
                     if color in drop_targets:
@@ -176,8 +176,6 @@ def main():
     parser.add_argument("--gripper", action="store_true", help="Use gripper instead of suction cup")
     parser.add_argument("--pick-z", type=float, default=None, help="Custom block pick height on chassis floor")
     parser.add_argument("--drop-z", type=float, default=None, help="Custom block drop height above ground boxes")
-    parser.add_argument("--offset-x", type=float, default=0.0, help="Offset to add to mapped block X coordinate")
-    parser.add_argument("--offset-y", type=float, default=0.0, help="Offset to add to mapped block Y coordinate")
     parser.add_argument("--scan-x", type=float, default=0.0, help="Custom Chassis Scan position X")
     parser.add_argument("--scan-y", type=float, default=-241.9, help="Custom Chassis Scan position Y")
     parser.add_argument("--scan-z", type=float, default=66.8, help="Custom Chassis Scan position Z")
@@ -265,8 +263,8 @@ def main():
             pts = np.float32([[[u, v]]])
             trans = cv2.transform(pts, mat_chassis)
             block_x, block_y = trans[0][0]
-            block_x = float(block_x) + args.offset_x
-            block_y = float(block_y) + args.offset_y
+            block_x = float(block_x)
+            block_y = float(block_y)
             block_angle = scan_pos["r"]
             
             print(f"Block Chassis Pose: X={block_x:.1f}, Y={block_y:.1f}")

@@ -49,6 +49,10 @@ def main():
     parser.add_argument("--target", type=str, default="chassis", choices=["chassis", "ground"],
                         help="Calibration target: 'chassis' (block pick area) or 'ground' (box drop area)")
     parser.add_argument("--port", type=str, default="COM6", help="COM port for Magician Lite")
+    parser.add_argument("--scan-x", type=float, default=None, help="Custom Scan position X")
+    parser.add_argument("--scan-y", type=float, default=None, help="Custom Scan position Y")
+    parser.add_argument("--scan-z", type=float, default=None, help="Custom Scan position Z")
+    parser.add_argument("--scan-r", type=float, default=None, help="Custom Scan position R")
     args = parser.parse_args()
 
     print(f"=== Magician GO + Lite Calibration [{args.target.upper()} Target] ===")
@@ -60,11 +64,16 @@ def main():
 
     # Determine scanning coordinates and config file path
     if args.target == "chassis":
-        SCAN_X, SCAN_Y, SCAN_Z, SCAN_R = 0.0, -241.9, 66.8, -90.0
+        default_x, default_y, default_z, default_r = 0.0, -241.9, 66.8, -90.0
         config_name = "calibration_chassis.json"
     else:
-        SCAN_X, SCAN_Y, SCAN_Z, SCAN_R = 241.0, 0.0, 149.3, 0.0
+        default_x, default_y, default_z, default_r = 241.0, 0.0, 149.3, 0.0
         config_name = "calibration_ground.json"
+
+    SCAN_X = args.scan_x if args.scan_x is not None else default_x
+    SCAN_Y = args.scan_y if args.scan_y is not None else default_y
+    SCAN_Z = args.scan_z if args.scan_z is not None else default_z
+    SCAN_R = args.scan_r if args.scan_r is not None else default_r
 
     config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", config_name))
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
@@ -92,9 +101,12 @@ def main():
         lite.set_ptpcommon_params(velocity_ratio=40, acceleration_ratio=20)
         
         # Move to Scan Position
-        print(f"\nMoving to scan position: X={SCAN_X}, Y={SCAN_Y}, Z={SCAN_Z}, R={SCAN_R}...")
-        lite.set_ptpcmd(ptp_mode=1, x=SCAN_X, y=SCAN_Y, z=SCAN_Z, r=SCAN_R)
+        print(f"\nMoving to scan position (hover first): X={SCAN_X}, Y={SCAN_Y}, Z=150.0...")
+        lite.set_ptpcmd(ptp_mode=1, x=SCAN_X, y=SCAN_Y, z=150.0, r=SCAN_R)
         time.sleep(3.0)
+        print(f"Descending to scan height Z={SCAN_Z}...")
+        lite.set_ptpcmd(ptp_mode=1, x=SCAN_X, y=SCAN_Y, z=SCAN_Z, r=SCAN_R)
+        time.sleep(2.0)
 
         pts_pixel = []
         pts_robot = []
@@ -136,9 +148,12 @@ def main():
             pts_robot.append([x_rob, y_rob])
             
             # Re-center arm
-            print("\nRe-centering arm to Scan Position...")
-            lite.set_ptpcmd(ptp_mode=1, x=SCAN_X, y=SCAN_Y, z=SCAN_Z, r=SCAN_R)
+            print("\nRe-centering arm to Scan Position (hover first)...")
+            lite.set_ptpcmd(ptp_mode=1, x=SCAN_X, y=SCAN_Y, z=150.0, r=SCAN_R)
             time.sleep(3.0)
+            print("Descending to scan height...")
+            lite.set_ptpcmd(ptp_mode=1, x=SCAN_X, y=SCAN_Y, z=SCAN_Z, r=SCAN_R)
+            time.sleep(2.0)
             
         # Calculate transform matrix
         src = np.float32(pts_pixel)

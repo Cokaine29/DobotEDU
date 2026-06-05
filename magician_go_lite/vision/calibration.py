@@ -5,10 +5,10 @@ Interactive 3-point calibration tool for the Magician Lite on Magician GO.
 
 Usage:
   # Calibrate the chassis floor (block scanning)
-  python magician_go_lite/vision/calibration.py --target chassis --port COM6 --camera 0
+  .venv\\Scripts\\python.exe magician_go_lite/vision/calibration.py --target chassis --port COM6
   
   # Calibrate the ground (box scanning)
-  python magician_go_lite/vision/calibration.py --target ground --port COM6 --camera 0
+  .venv\\Scripts\\python.exe magician_go_lite/vision/calibration.py --target ground --port COM6
 """
 
 import sys
@@ -22,44 +22,26 @@ import numpy as np
 # Append parent directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.lite_helper import get_lite, safe_connect, safe_disconnect, move_to, read_stable_pose
+from DobotEDU import dobot_edu
 
-def detect_red_block(img):
-    """Detects a red block in the frame and returns its centroid (u, v) or None."""
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    
-    # Red HSV bounds (covers two ranges due to wrap-around at 180)
-    lower_red1 = np.array([0, 100, 100])
-    upper_red1 = np.array([10, 255, 255])
-    lower_red2 = np.array([160, 100, 100])
-    upper_red2 = np.array([180, 255, 255])
-    
-    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-    mask = cv2.bitwise_or(mask1, mask2)
-    
-    # Clean up noise
-    kernel = np.ones((5,5), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    best_cnt = None
-    max_area = 0
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        if area > 300: # ignore tiny noise
-            if area > max_area:
-                max_area = area
-                best_cnt = cnt
-                
-    if best_cnt is not None:
-        M = cv2.moments(best_cnt)
-        if M['m00'] != 0:
-            cx = int(M['m10'] / M['m00'])
-            cy = int(M['m01'] / M['m00'])
-            return cx, cy
-            
+def detect_calibration_block():
+    """Polls the arm camera for any block, prioritizing red (id == 0), and returns its (x, y) coordinates."""
+    go = dobot_edu.beta_go
+    for attempt in range(10):
+        try:
+            objs = go.get_arm_camera_obj()
+            if objs.get('count', 0) > 0:
+                dl_objs = objs.get('dl_obj', [])
+                # Try to find red block first
+                for obj in dl_objs:
+                    if obj.get('id') == 0:
+                        return obj['x'], obj['y']
+                # If no red, return first detected block
+                if dl_objs:
+                    return dl_objs[0]['x'], dl_objs[0]['y']
+        except Exception as e:
+            pass
+        time.sleep(0.2)
     return None
 
 def main():
@@ -67,12 +49,14 @@ def main():
     parser.add_argument("--target", type=str, default="chassis", choices=["chassis", "ground"],
                         help="Calibration target: 'chassis' (block pick area) or 'ground' (box drop area)")
     parser.add_argument("--port", type=str, default="COM6", help="COM port for Magician Lite")
-    parser.add_argument("--camera", type=int, default=0, help="USB camera index (default: 0)")
     args = parser.parse_args()
 
     print(f"=== Magician GO + Lite Calibration [{args.target.upper()} Target] ===")
-    print(f"Port: {args.port} | Camera Index: {args.camera}")
-    print("Close DobotLab to free the COM port.\n")
+    print(f"Port: {args.port}")
+    print("Ensure DobotLab is open and connected to 'Magician GO & Magician Lite' in the background.\n")
+
+    # Set port name FIRST so that decorators on beta_go/lite methods receive the port parameter correctly
+    dobot_edu.set_portname(args.port)
 
     # Determine scanning coordinates and config file path
     if args.target == "chassis":
@@ -85,24 +69,21 @@ def main():
     config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", config_name))
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
 
-    # Initialize camera test
-    print(f"Testing camera index {args.camera}...")
-    cap = cv2.VideoCapture(args.camera)
-    if not cap.isOpened():
-        print(f"[ERROR] Could not open camera index {args.camera}. Check USB connection.")
-        return
-    ret, frame = cap.read()
-    cap.release()
-    if not ret:
-        print("[ERROR] Could not read frame from camera.")
-        return
-    print("[OK] Camera is ready.\n")
-
-    # Connect to Lite
+    # Connect to Lite FIRST to establish the connection session
     lite = get_lite(args.port)
     try:
         safe_connect(lite)
         
+        # Initialize arm camera model AFTER connection is established
+        print("Activating Arm Camera color block detection model (index 1)...")
+        go = dobot_edu.beta_go
+        try:
+            res = go.set_arm_camera_model(1)
+            print(f"[OK] Arm camera model set result: {res}")
+        except Exception as e:
+            print(f"[ERROR] Failed to set arm camera model: {e}")
+            return
+
         print("\nHoming robot...")
         lite.set_homecmd()
         print("[OK] Homing done.")
@@ -121,44 +102,21 @@ def main():
         # Perform 3-point routine
         for i in range(1, 4):
             print(f"\n--- CALIBRATION POINT {i}/3 ---")
-            print("1. Place the RED block on the target surface in the camera view.")
+            print("1. Place the calibration block on the target surface in the camera view.")
             input("   Press [Enter] when the block is in position to capture...")
             
-            # Capture frame
-            cap = cv2.VideoCapture(args.camera)
-            time.sleep(0.5) # allow auto-exposure
-            ret, frame = cap.read()
-            cap.release()
-            
-            if not ret:
-                print("   [ERROR] Failed to capture frame. Retrying point...")
-                i -= 1
-                continue
-                
-            center = detect_red_block(frame)
+            center = detect_calibration_block()
             if center is None:
-                print("   [ERROR] RED block not detected in view. Check lighting/placement.")
-                cv2.imwrite("failed_calibration_detect.jpg", frame)
-                print("   Snapshot saved to 'failed_calibration_detect.jpg' for analysis.")
-                # Allow retry of the same index
+                print("   [ERROR] Block not detected in view. Check lighting/placement.")
+                # Allow retry
                 input("   Adjust block position, then press [Enter] to try again...")
-                # We decrement i so it repeats this step
-                # A simple decrement requires us to restart this point iteration
-                # We can just decrement and run a loop logic
-                # For safety, let's just let it repeat the capture
-                cap = cv2.VideoCapture(args.camera)
-                time.sleep(0.5)
-                ret, frame = cap.read()
-                cap.release()
-                if ret:
-                    center = detect_red_block(frame)
-                
+                center = detect_calibration_block()
                 if center is None:
-                    print("   [ERROR] Still not detected. Skipping point (calibration will fail).")
+                    print("   [ERROR] Still not detected. Skipping calibration.")
                     return
             
             u, v = center
-            print(f"   [OK] Detected RED block at pixel: u={u}, v={v}")
+            print(f"   [OK] Detected block at pixel: u={u}, v={v}")
             
             # User guides the arm
             print("2. Press the unlock button on the arm and physically align the suction cup/gripper")

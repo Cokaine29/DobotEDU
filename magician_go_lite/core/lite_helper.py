@@ -62,9 +62,11 @@ def suction_on(lite, delay=0.8):
     time.sleep(delay)
 
 def suction_off(lite, delay=0.8):
-    """Disable suction cup and turn off pump."""
+    """Disable suction cup and turn off pump motor."""
     lite.set_endeffector_suctioncup(enable=True, on=False)
-    time.sleep(delay)
+    time.sleep(0.3)
+    lite.set_endeffector_suctioncup(enable=False, on=False)
+    time.sleep(max(0.0, delay - 0.3))
 
 def gripper_close(lite, delay=0.6):
     """Close the gripper."""

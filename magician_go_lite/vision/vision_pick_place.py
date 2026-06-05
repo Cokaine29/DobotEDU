@@ -26,6 +26,28 @@ import argparse
 import cv2
 import numpy as np
 
+# Monkey-Patch DobotRPC to bypass port 10001 connection hang
+try:
+    import DobotRPC.RPCClient
+    original_wait = DobotRPC.RPCClient.RPCClient.wait_for_connected
+    original_is_connected = DobotRPC.RPCClient.RPCClient.is_connected
+
+    async def patched_wait_for_connected(self):
+        if self._RPCClient__port == 10001:
+            return
+        return await original_wait(self)
+
+    @property
+    def patched_is_connected(self):
+        if self._RPCClient__port == 10001:
+            return True
+        return original_is_connected.fget(self)
+
+    DobotRPC.RPCClient.RPCClient.wait_for_connected = patched_wait_for_connected
+    DobotRPC.RPCClient.RPCClient.is_connected = patched_is_connected
+except Exception as e:
+    pass
+
 # Append parent directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.lite_helper import get_lite, safe_connect, safe_disconnect, move_to, suction_on, suction_off, gripper_close, gripper_open

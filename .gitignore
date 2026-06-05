@@ -1,0 +1,27 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local test outputs and images
+*.jpg
+*.png
+*.jpeg
+
+# Machine-specific calibration and taught targets
+magician_lite/config/calibration.json
+magician_lite/config/drop_targets.json
+magician_go_lite/config/calibration_chassis.json
+magician_go_lite/config/calibration_ground.json
+
+# IDEs and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

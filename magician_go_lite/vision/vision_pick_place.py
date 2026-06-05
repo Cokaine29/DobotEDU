@@ -29,8 +29,32 @@ import numpy as np
 # Monkey-Patch DobotRPC to bypass port 10001 connection hang
 try:
     import DobotRPC.RPCClient
+    import asyncio
+
+    class MockWS:
+        @property
+        def open(self):
+            return True
+        async def send(self, *args, **kwargs):
+            pass
+        async def recv(self, *args, **kwargs):
+            await asyncio.sleep(36000)
+
+    original_init = DobotRPC.RPCClient.RPCClient.__init__
     original_wait = DobotRPC.RPCClient.RPCClient.wait_for_connected
     original_is_connected = DobotRPC.RPCClient.RPCClient.is_connected
+
+    def patched_init(self, ip="localhost", port=9090, *args, **kwargs):
+        if port == 10001:
+            self._RPCClient__ip = ip
+            self._RPCClient__port = port
+            self._RPCClient__ws = MockWS()
+            self._RPCClient__exchange_map = {}
+            self._RPCClient__recv_task_timer = None
+            self._RPCClient__client_name = "MockClient-10001"
+            self._RPCClient__loop = asyncio.get_event_loop()
+            return
+        return original_init(self, ip, port, *args, **kwargs)
 
     async def patched_wait_for_connected(self):
         if self._RPCClient__port == 10001:
@@ -43,6 +67,7 @@ try:
             return True
         return original_is_connected.fget(self)
 
+    DobotRPC.RPCClient.RPCClient.__init__ = patched_init
     DobotRPC.RPCClient.RPCClient.wait_for_connected = patched_wait_for_connected
     DobotRPC.RPCClient.RPCClient.is_connected = patched_is_connected
 except Exception as e:

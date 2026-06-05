@@ -219,6 +219,18 @@ def main():
     try:
         safe_connect(lite)
         
+        print("Clearing alarms and resetting command queue...")
+        try:
+            lite.clear_allalarms_state()
+            time.sleep(0.3)
+            lite.queuedcmd_clear()
+            time.sleep(0.3)
+            lite.queuedcmd_start()
+            time.sleep(0.3)
+            print("[OK] Alarms cleared and queue reset.")
+        except Exception as e:
+            print(f"[WARN] Failed to clear alarms/queue: {e}")
+            
         # Initialize arm camera model via API AFTER connecting
         print("Activating Arm Camera color block detection model (index 1)...")
         go = dobot_edu.beta_go

@@ -32,7 +32,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.lite_helper import get_lite, safe_connect, safe_disconnect, move_to, suction_on, suction_off, gripper_close, gripper_open
 
 # Scan positions
-SCAN_CHASSIS = {"x": 0.0, "y": -241.9, "z": 152.0, "r": -90.0}
+SCAN_CHASSIS = {"x": 0.0, "y": -241.9, "z": 66.8, "r": -90.0}
 SCAN_GROUND  = {"x": 241.0, "y": 0.0,  "z": 149.3, "r": 0.0}
 
 Z_HOVER = 80.0 # Hover height during travel

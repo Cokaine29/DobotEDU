@@ -76,7 +76,7 @@ def main():
 
     # Determine scanning coordinates and config file path
     if args.target == "chassis":
-        SCAN_X, SCAN_Y, SCAN_Z, SCAN_R = 0.0, -241.9, 152.0, -90.0
+        SCAN_X, SCAN_Y, SCAN_Z, SCAN_R = 0.0, -241.9, 66.8, -90.0
         config_name = "calibration_chassis.json"
     else:
         SCAN_X, SCAN_Y, SCAN_Z, SCAN_R = 241.0, 0.0, 149.3, 0.0

@@ -2,6 +2,7 @@
 lite_helper.py
 ==============
 Core helper functions for Dobot Magician Lite using the DobotEDU library.
+Includes keep-alive mechanism to prevent Bluetooth disconnect beeps during idle periods.
 """
 
 import time
@@ -11,6 +12,29 @@ def get_lite(port: str):
     """Set the port and return the m_lite object."""
     dobot_edu.set_portname(port)
     return dobot_edu.m_lite
+
+def keep_alive_sleep(lite, duration: float, interval: float = 0.2):
+    """
+    Sleep for `duration` seconds while keeping the DobotLink connection active
+    by periodically calling get_pose(). This prevents the serial connection
+    from going idle and disconnecting over Bluetooth.
+    """
+    start_time = time.time()
+    while time.time() - start_time < duration:
+        try:
+            # Querying the pose keeps the serial connection active
+            lite.get_pose()
+        except Exception:
+            pass
+        
+        # Calculate remaining time for the next slice
+        elapsed = time.time() - start_time
+        remaining = duration - elapsed
+        if remaining <= 0:
+            break
+            
+        time_to_sleep = min(interval, remaining)
+        time.sleep(time_to_sleep)
 
 def safe_connect(lite, retries: int = 3, delay: float = 1.5):
     """Disconnect any stale session, then connect fresh."""
@@ -54,29 +78,29 @@ def move_to(lite, x, y, z, r=0.0, ptp_mode=1, delay=2.5):
     ptp_mode: 1 = MOVJ_XYZ (joint interpolation, smooth), 2 = MOVL_XYZ (linear)
     """
     lite.set_ptpcmd(ptp_mode=ptp_mode, x=x, y=y, z=z, r=r)
-    time.sleep(delay)
+    keep_alive_sleep(lite, delay)
 
 def suction_on(lite, delay=0.8):
     """Enable suction cup and turn on pump."""
     lite.set_endeffector_suctioncup(enable=True, on=True)
-    time.sleep(delay)
+    keep_alive_sleep(lite, delay)
 
 def suction_off(lite, delay=0.8):
     """Disable suction cup and turn off pump motor."""
     lite.set_endeffector_suctioncup(enable=True, on=False)
-    time.sleep(0.3)
+    keep_alive_sleep(lite, 0.3)
     lite.set_endeffector_suctioncup(enable=False, on=False)
-    time.sleep(max(0.0, delay - 0.3))
+    keep_alive_sleep(lite, max(0.0, delay - 0.3))
 
 def gripper_close(lite, delay=0.6):
     """Close the gripper."""
     lite.set_endeffector_gripper(enable=True, on=True)
-    time.sleep(delay)
+    keep_alive_sleep(lite, delay)
 
 def gripper_open(lite, delay=0.6):
     """Open the gripper."""
     lite.set_endeffector_gripper(enable=True, on=False)
-    time.sleep(delay)
+    keep_alive_sleep(lite, delay)
 
 def read_stable_pose(lite, retries=5):
     """Reads current robot pose stably."""

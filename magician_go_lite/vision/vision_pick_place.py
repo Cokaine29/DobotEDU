@@ -75,7 +75,7 @@ except Exception as e:
 
 # Append parent directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from core.lite_helper import get_lite, safe_connect, safe_disconnect, move_to, suction_on, suction_off, gripper_close, gripper_open
+from core.lite_helper import get_lite, safe_connect, safe_disconnect, move_to, suction_on, suction_off, gripper_close, gripper_open, keep_alive_sleep
 from DobotEDU import dobot_edu
 
 # Scan position for Chassis floor slots
@@ -247,6 +247,25 @@ def main():
     print("Loading calibration and drop target files...")
     mat_chassis = load_calibration("calibration_chassis.json")
     drop_targets = load_drop_targets()
+    
+    # Auto-load scan position from calibration if defaults are used
+    config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", "calibration_chassis.json"))
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                cal_data = json.load(f)
+            if "scan_position" in cal_data:
+                sp = cal_data["scan_position"]
+                # Only override if the user didn't change CLI arguments from defaults
+                if args.scan_x == 0.0 and args.scan_y == -241.9 and args.scan_z == 66.8 and args.scan_r == -90.0:
+                    scan_pos["x"] = float(sp.get("x", scan_pos["x"]))
+                    scan_pos["y"] = float(sp.get("y", scan_pos["y"]))
+                    scan_pos["z"] = float(sp.get("z", scan_pos["z"]))
+                    scan_pos["r"] = float(sp.get("r", scan_pos["r"]))
+                    print(f"[INFO] Auto-loaded scan position from calibration_chassis.json: X={scan_pos['x']}, Y={scan_pos['y']}, Z={scan_pos['z']}, R={scan_pos['r']}")
+        except Exception as e:
+            print(f"[WARN] Failed to auto-load scan position: {e}")
+            
     print("[OK] Calibrations and drop targets loaded.")
     
     # Establish pick Z coordinate
@@ -269,11 +288,11 @@ def main():
         print("Clearing alarms and resetting command queue...")
         try:
             lite.clear_allalarms_state()
-            time.sleep(0.3)
+            keep_alive_sleep(lite, 0.3)
             lite.queuedcmd_clear()
-            time.sleep(0.3)
+            keep_alive_sleep(lite, 0.3)
             lite.queuedcmd_start()
-            time.sleep(0.3)
+            keep_alive_sleep(lite, 0.3)
             print("[OK] Alarms cleared and queue reset.")
         except Exception as e:
             print(f"[WARN] Failed to clear alarms/queue: {e}")
@@ -299,7 +318,7 @@ def main():
         move_to(lite, scan_pos['x'], scan_pos['y'], 150.0, scan_pos['r'])
         print(f"Descending to scan height Z={scan_pos['z']}...")
         move_to(lite, scan_pos['x'], scan_pos['y'], scan_pos['z'], scan_pos['r'])
-        time.sleep(1.0)
+        keep_alive_sleep(lite, 1.0)
         
         print("\n--- STEP 1: Scan Chassis Blocks ---")
         print("Ensure the blocks to be sorted are placed on the chassis floor slots.")

@@ -67,10 +67,11 @@ def detect_calibration_block():
     return None
 
 def main():
-    parser = argparse.ArgumentParser(description="Magician GO + Lite 3-Point Calibration")
+    parser = argparse.ArgumentParser(description="Magician GO + Lite Multi-Point Calibration")
     parser.add_argument("--target", type=str, default="chassis", choices=["chassis", "ground"],
                         help="Calibration target: 'chassis' (block pick area) or 'ground' (box drop area)")
     parser.add_argument("--port", type=str, default="COM6", help="COM port for Magician Lite")
+    parser.add_argument("--points", type=int, default=6, help="Number of calibration points to record (must be >= 3)")
     parser.add_argument("--scan-x", type=float, default=None, help="Custom Scan position X")
     parser.add_argument("--scan-y", type=float, default=None, help="Custom Scan position Y")
     parser.add_argument("--scan-z", type=float, default=None, help="Custom Scan position Z")
@@ -124,18 +125,16 @@ def main():
         
         # Move to Scan Position
         print(f"\nMoving to scan position (hover first): X={SCAN_X}, Y={SCAN_Y}, Z=150.0...")
-        lite.set_ptpcmd(ptp_mode=1, x=SCAN_X, y=SCAN_Y, z=150.0, r=SCAN_R)
-        time.sleep(3.0)
+        move_to(lite, SCAN_X, SCAN_Y, 150.0, SCAN_R, delay=3.0)
         print(f"Descending to scan height Z={SCAN_Z}...")
-        lite.set_ptpcmd(ptp_mode=1, x=SCAN_X, y=SCAN_Y, z=SCAN_Z, r=SCAN_R)
-        time.sleep(2.0)
+        move_to(lite, SCAN_X, SCAN_Y, SCAN_Z, SCAN_R, delay=2.0)
 
         pts_pixel = []
         pts_robot = []
 
-        # Perform 3-point routine
-        for i in range(1, 4):
-            print(f"\n--- CALIBRATION POINT {i}/3 ---")
+        # Perform N-point routine
+        for i in range(1, args.points + 1):
+            print(f"\n--- CALIBRATION POINT {i}/{args.points} ---")
             print("1. Place the calibration block on the target surface in the camera view.")
             input("   Press [Enter] when the block is in position to capture...")
             
@@ -171,18 +170,19 @@ def main():
             
             # Re-center arm
             print("\nRe-centering arm to Scan Position (hover first)...")
-            lite.set_ptpcmd(ptp_mode=1, x=SCAN_X, y=SCAN_Y, z=150.0, r=SCAN_R)
-            time.sleep(3.0)
+            move_to(lite, SCAN_X, SCAN_Y, 150.0, SCAN_R, delay=3.0)
             print("Descending to scan height...")
-            lite.set_ptpcmd(ptp_mode=1, x=SCAN_X, y=SCAN_Y, z=SCAN_Z, r=SCAN_R)
-            time.sleep(2.0)
+            move_to(lite, SCAN_X, SCAN_Y, SCAN_Z, SCAN_R, delay=2.0)
             
         # Calculate transform matrix
         src = np.float32(pts_pixel)
         dst = np.float32(pts_robot)
         
         print("\nCalculating calibration matrix...")
-        matrix = cv2.getAffineTransform(src, dst)
+        if len(pts_pixel) == 3:
+            matrix = cv2.getAffineTransform(src, dst)
+        else:
+            matrix, inliers = cv2.estimateAffine2D(src, dst)
         
         # Save config
         calib_data = {

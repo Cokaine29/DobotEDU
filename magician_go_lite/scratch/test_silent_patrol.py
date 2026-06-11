@@ -9,6 +9,12 @@ from magician_go_lite.core.lite_helper import safe_connect, safe_disconnect
 PORT = "COM6"
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Silent Patrol Test")
+    parser.add_argument("--speed", type=int, default=12, help="Patrol speed (default: 12)")
+    args = parser.parse_args()
+    speed = args.speed
+
     dobot_edu.set_portname(PORT)
     lite = dobot_edu.m_lite
     go = dobot_edu.magiciango
@@ -21,11 +27,11 @@ def main():
         return
 
     try:
-        print("\n=== SILENT PATROL TEST (15 seconds) ===")
+        print(f"\n=== SILENT PATROL TEST ({speed} cm/s for 15 seconds) ===")
         print("This script will start patrol and then go COMPLETELY silent (no polling at all).")
         print("We want to see if the robot turns left perfectly without any over-steering.")
         
-        go.set_trace_speed(speed=12)
+        go.set_trace_speed(speed=speed)
         time.sleep(0.1)
         go.set_auto_trace(trace=1)
         

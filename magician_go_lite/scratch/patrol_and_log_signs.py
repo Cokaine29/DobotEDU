@@ -102,8 +102,18 @@ def main():
         print(f"[STATUS] Line tracking patrol started (Max Speed={speed})!")
 
         last_speed = speed
+        loop_counter = 0
 
         while True:
+            # Periodically query Magician Lite pose (every ~0.9s) to keep the serial session active
+            # This prevents DobotLink from timing out the arm session and disrupting the COM port.
+            if loop_counter % 3 == 0:
+                try:
+                    lite.get_pose()
+                except Exception:
+                    pass
+            loop_counter += 1
+
             # 1. Read line tracking angle
             try:
                 trace_data = go.get_trace_angle()

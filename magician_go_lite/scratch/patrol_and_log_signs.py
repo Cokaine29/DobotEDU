@@ -116,40 +116,20 @@ def main():
         go.set_auto_trace(trace=1)
         print(f"[STATUS] Line tracking patrol started (Max Speed={speed})!")
 
-        last_speed = speed
         loop_counter = 0
 
         while True:
-            # Periodically query Magician Lite pose (every ~0.9s) to keep the serial session active
-            # This prevents DobotLink from timing out the arm session and disrupting the COM port.
-            if loop_counter % 3 == 0:
+            # 1. Arm Keep-alive: only once every 3.0s (5 iterations)
+            # This is slow enough to not cause serial lag, but fast enough to prevent timeout.
+            if loop_counter % 5 == 0:
                 try:
                     lite.get_pose()
                 except Exception:
                     pass
             loop_counter += 1
 
-            # 1. Read line tracking angle
-            try:
-                trace_data = go.get_trace_angle()
-                angle = abs(float(trace_data.get('angle', 0.0)))
-            except Exception:
-                angle = 0.0
-
-            # Calculate adaptive speed: slow down on curves
-            # Linear deceleration: speed decreases as angle increases, down to a minimum of 8
-            target_speed = max(8, min(speed, speed - int(angle * 0.4)))
-            
-            # Update speed dynamically only if it changed to avoid command spamming
-            if target_speed != last_speed:
-                try:
-                    go.set_trace_speed(speed=target_speed)
-                    last_speed = target_speed
-                    print(f"\n[{time.strftime('%H:%M:%S')}] [SPEED] Adjusting to {target_speed} cm/s (Line angle: {angle:.1f}°)")
-                except Exception as e:
-                    print(f"\n[{time.strftime('%H:%M:%S')}] [WARN] Speed adjust failed: {e}")
-
-            # 2. Read camera detections
+            # 2. Read camera detections once every 600ms
+            # At speed 12, the camera stays on the sign for ~1.5s, so 600ms is perfectly safe.
             camera_data = beta_go.get_car_camera_obj()
             count = camera_data.get('count', 0)
             objs = camera_data.get('dl_obj', [])
@@ -170,8 +150,8 @@ def main():
                 sys.stdout.write(".")
                 sys.stdout.flush()
                 
-            # 300ms interval is the optimal sweet spot for responsiveness and safety
-            time.sleep(0.3)
+            # 600ms loop interval (1.6Hz) to completely eliminate serial port congestion
+            time.sleep(0.6)
 
     except KeyboardInterrupt:
         print("\nStopping patrol safely...")

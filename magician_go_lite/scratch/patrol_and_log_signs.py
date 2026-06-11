@@ -167,6 +167,18 @@ def main():
             print("[OK] Stopped.")
         except Exception as e:
             print(f"Failed to stop: {e}")
+    except Exception as e:
+        print(f"\n[CRITICAL ERROR] Script crashed: {e}")
+        import traceback
+        traceback.print_exc()
+        try:
+            print("Attempting to stop robot...")
+            go.set_trace_speed(speed=0)
+            time.sleep(0.1)
+            go.set_auto_trace(trace=0)
+            print("[OK] Stopped.")
+        except Exception as stop_err:
+            print(f"Failed to stop: {stop_err}")
     finally:
         safe_disconnect(lite)
 

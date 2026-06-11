@@ -4,7 +4,7 @@ import time
 
 sys.path.append(r"d:\DobotEDU")
 from DobotEDU import dobot_edu
-from magician_go_lite.core.lite_helper import safe_connect, safe_disconnect
+from magician_go_lite.core.lite_helper import safe_connect, safe_disconnect, keep_alive_sleep
 
 PORT = "COM6"
 
@@ -28,8 +28,8 @@ def main():
         time.sleep(0.1)
         go.set_auto_trace(trace=1)
         
-        # Sleep for 20 seconds with NO commands sent over serial
-        time.sleep(20.0)
+        # Sleep for 20 seconds using keep-alive to keep the connection open
+        keep_alive_sleep(lite, 20.0)
 
         print("\n=== PHASE 2: Running trace WITH rapid camera polling (20 seconds) ===")
         print("Check if the robot starts wobbling...")
@@ -41,7 +41,7 @@ def main():
 
         print("\n=== PHASE 3: Running trace WITHOUT camera polling again (20 seconds) ===")
         print("Check if it becomes smooth again...")
-        time.sleep(20.0)
+        keep_alive_sleep(lite, 20.0)
 
     except KeyboardInterrupt:
         pass

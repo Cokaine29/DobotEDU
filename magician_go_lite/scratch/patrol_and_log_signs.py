@@ -121,9 +121,10 @@ def main():
         loop_counter = 0
 
         while True:
-            # 1. Arm Keep-alive: only once every 3.0s (5 iterations)
-            # This is slow enough to not cause serial lag, but fast enough to prevent timeout.
-            if loop_counter % 5 == 0:
+            # 1. Arm Keep-alive: only once every 1.2s (2 iterations)
+            # This is frequent enough to prevent DobotLink timeout (< 2.5s) 
+            # but slow enough to avoid any serial port congestion.
+            if loop_counter % 2 == 0:
                 try:
                     lite.get_pose()
                 except Exception:

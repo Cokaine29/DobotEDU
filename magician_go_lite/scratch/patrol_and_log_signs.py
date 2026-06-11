@@ -60,6 +60,9 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Patrol and Log Signs")
     parser.add_argument("--speed", type=int, default=12, help="Patrol speed (default: 12)")
+    parser.add_argument("--p", type=int, default=None, help="Line tracking PID P-gain")
+    parser.add_argument("--i", type=int, default=None, help="Line tracking PID I-gain")
+    parser.add_argument("--d", type=int, default=None, help="Line tracking PID D-gain")
     args = parser.parse_args()
 
     speed = args.speed
@@ -84,6 +87,18 @@ def main():
         print(f"[ERROR] Could not query Magician GO: {e}")
         safe_disconnect(lite)
         return
+
+    # Set custom PID if provided
+    if args.p is not None or args.i is not None or args.d is not None:
+        p_val = args.p if args.p is not None else 10
+        i_val = args.i if args.i is not None else 0
+        d_val = args.d if args.d is not None else 5
+        print(f"Setting custom line tracking PID: P={p_val}, I={i_val}, D={d_val}...")
+        try:
+            go.set_trace_pid(p=p_val, i=i_val, d=d_val)
+            print("[OK] PID parameters set successfully.")
+        except Exception as e:
+            print(f"[WARN] Failed to set PID: {e}")
 
     print(f"\nStarting Normal Line Tracking Patrol (Speed={speed}) and Logging Signs...")
     print("The robot will follow the line track continuously and print any signs it sees.")

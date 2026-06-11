@@ -60,12 +60,14 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Patrol and Log Signs")
     parser.add_argument("--speed", type=int, default=12, help="Patrol speed (default: 12)")
+    parser.add_argument("--trace", type=int, default=2, help="Trace mode: 1 = Black line, 2 = White line (default: 2)")
     parser.add_argument("--p", type=int, default=None, help="Line tracking PID P-gain")
     parser.add_argument("--i", type=int, default=None, help="Line tracking PID I-gain")
     parser.add_argument("--d", type=int, default=None, help="Line tracking PID D-gain")
     args = parser.parse_args()
 
     speed = args.speed
+    trace_mode = args.trace
 
     dobot_edu.set_portname(PORT)
     lite = dobot_edu.m_lite
@@ -113,8 +115,8 @@ def main():
         # Start automatic line patrol at the user-specified max speed
         go.set_trace_speed(speed=speed)
         time.sleep(0.1)
-        go.set_auto_trace(trace=1)
-        print(f"[STATUS] Line tracking patrol started (Max Speed={speed})!")
+        go.set_auto_trace(trace=trace_mode)
+        print(f"[STATUS] Line tracking patrol started (Max Speed={speed}, TraceMode={trace_mode})!")
 
         loop_counter = 0
 

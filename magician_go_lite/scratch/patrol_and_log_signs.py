@@ -95,14 +95,36 @@ def main():
     all_signs = ["lors", "l", "p", "apt", "rors", "r", "stop", "spm", "t", "u", "wh", "z"]
 
     try:
-        # Start automatic line patrol
+        # Start automatic line patrol at the user-specified max speed
         go.set_trace_speed(speed=speed)
         time.sleep(0.1)
         go.set_auto_trace(trace=1)
-        print("[STATUS] Line tracking patrol started!")
+        print(f"[STATUS] Line tracking patrol started (Max Speed={speed})!")
+
+        last_speed = speed
 
         while True:
-            # Read camera detections
+            # 1. Read line tracking angle
+            try:
+                trace_data = go.get_trace_angle()
+                angle = abs(float(trace_data.get('angle', 0.0)))
+            except Exception:
+                angle = 0.0
+
+            # Calculate adaptive speed: slow down on curves
+            # Linear deceleration: speed decreases as angle increases, down to a minimum of 8
+            target_speed = max(8, min(speed, speed - int(angle * 0.4)))
+            
+            # Update speed dynamically only if it changed to avoid command spamming
+            if target_speed != last_speed:
+                try:
+                    go.set_trace_speed(speed=target_speed)
+                    last_speed = target_speed
+                    print(f"\n[{time.strftime('%H:%M:%S')}] [SPEED] Adjusting to {target_speed} cm/s (Line angle: {angle:.1f}°)")
+                except Exception as e:
+                    print(f"\n[{time.strftime('%H:%M:%S')}] [WARN] Speed adjust failed: {e}")
+
+            # 2. Read camera detections
             camera_data = beta_go.get_car_camera_obj()
             count = camera_data.get('count', 0)
             objs = camera_data.get('dl_obj', [])
@@ -118,15 +140,13 @@ def main():
                     h = obj.get('h', 'N/A')
                     detected.append(f"{name} (id={_id}, size={w}x{h})")
                 
-                print(f"[{time.strftime('%H:%M:%S')}] DETECTED: {', '.join(detected)}")
+                print(f"\n[{time.strftime('%H:%M:%S')}] DETECTED: {', '.join(detected)}")
             else:
-                # Print dot or minor update to show loop is active without spamming
                 sys.stdout.write(".")
                 sys.stdout.flush()
                 
-            # Poll at 2Hz (500ms) to prevent serial port congestion.
-            # At speed 12, a sign stays in view for ~1.5 seconds, so 500ms is frequent enough.
-            time.sleep(0.5)
+            # 300ms interval is the optimal sweet spot for responsiveness and safety
+            time.sleep(0.3)
 
     except KeyboardInterrupt:
         print("\nStopping patrol safely...")

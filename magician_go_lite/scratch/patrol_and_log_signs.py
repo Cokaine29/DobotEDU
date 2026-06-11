@@ -124,8 +124,9 @@ def main():
                 sys.stdout.write(".")
                 sys.stdout.flush()
                 
-            # Poll at 5Hz (200ms) to ensure we capture fast sign crossings
-            time.sleep(0.2)
+            # Poll at 2Hz (500ms) to prevent serial port congestion.
+            # At speed 12, a sign stays in view for ~1.5 seconds, so 500ms is frequent enough.
+            time.sleep(0.5)
 
     except KeyboardInterrupt:
         print("\nStopping patrol safely...")

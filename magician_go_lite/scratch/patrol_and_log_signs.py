@@ -57,6 +57,13 @@ from magician_go_lite.core.lite_helper import safe_connect, safe_disconnect
 PORT = "COM6"
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Patrol and Log Signs")
+    parser.add_argument("--speed", type=int, default=12, help="Patrol speed (default: 12)")
+    args = parser.parse_args()
+
+    speed = args.speed
+
     dobot_edu.set_portname(PORT)
     lite = dobot_edu.m_lite
     go = dobot_edu.magiciango
@@ -78,7 +85,7 @@ def main():
         safe_disconnect(lite)
         return
 
-    print("\nStarting Normal Line Tracking Patrol (Speed=20) and Logging Signs...")
+    print(f"\nStarting Normal Line Tracking Patrol (Speed={speed}) and Logging Signs...")
     print("The robot will follow the line track continuously and print any signs it sees.")
     print("Press Ctrl+C to stop the robot and exit the script.")
     print("-" * 70)
@@ -89,7 +96,7 @@ def main():
 
     try:
         # Start automatic line patrol
-        go.set_trace_speed(speed=20)
+        go.set_trace_speed(speed=speed)
         time.sleep(0.1)
         go.set_auto_trace(trace=1)
         print("[STATUS] Line tracking patrol started!")
